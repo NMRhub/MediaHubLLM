@@ -45,7 +45,7 @@ Start with the summary immediately, don't restate what you were asked to do in a
         temperature=0.1,
         model="llama3.3",
         api_key="ollama",
-        base_url="http://localhost:11434/v1",
+        base_url="http://grace.nmrbox.org:11434/v1",
     )
     chain = create_stuff_documents_chain(llm, prompt)
     result = chain.invoke({"context": docs})
