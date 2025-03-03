@@ -26,19 +26,17 @@ def summarize_pdf(file_path, summary_length=150):
     docs = loader.load()
 
     # Make the prompt
-    prompt_template = f"""Please summarize the following text in about {summary_length} words. 
-Only include information that is part of the document. 
-Start with the summary immediately, don't restate what you were asked to do in any way. Don't use weasel words like "appears to be".
-
-Document:
+    prompt_template = f"""Document:
 "{{context}}"
-Summary:"""
+Please summarize the following text in about {summary_length} words. 
+Only include information that is part of the document. 
+Start with the summary immediately, don't restate what you were asked to do in any way. Don't use weasel words like "appears to be":"""
     prompt = PromptTemplate.from_template(prompt_template)
 
     # Send the text to the ollama instance for summarization
     llm = ChatOpenAI(
         temperature=0.1,
-        model="llama3.1",
+        model="llama3.3",
         api_key="ollama",
         base_url="http://localhost:11434/v1",
     )
