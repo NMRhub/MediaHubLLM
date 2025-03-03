@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_core.prompts import PromptTemplate
