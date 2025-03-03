@@ -30,7 +30,7 @@ def summarize_pdf(file_path, summary_length=150):
     # Make the prompt
     prompt_template = f"""Please summarize the following text in about {summary_length} words. 
 Only include information that is part of the document. 
-Do not include your own opinion or analysis.
+Start with the summary immediately, don't restate what you were asked to do in any way. Don't use weasel words like "appears to be".
 
 Document:
 "{{document}}"
