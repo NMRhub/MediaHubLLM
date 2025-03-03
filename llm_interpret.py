@@ -38,7 +38,7 @@ Summary:"""
     # Send the text to the ollama instance for summarization
     llm = ChatOpenAI(
         temperature=0.1,
-        model_name="llama3.1",
+        model="llama3.1",
         api_key="ollama",
         base_url="http://localhost:11434/v1",
     )
