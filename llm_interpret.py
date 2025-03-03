@@ -1,10 +1,8 @@
 import argparse
-import requests
 from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_core.prompts import PromptTemplate
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_openai import ChatOpenAI
-from langchain.chains.llm import LLMChain
 
 
 def summarize_pdf(file_path, summary_length=150):
@@ -21,7 +19,7 @@ def summarize_pdf(file_path, summary_length=150):
 
     Note:
         This function requires a running ollama instance. To set up the ollama docker container with the correct model, run:
-        docker run -d --name ollama -p 11434:8080 ghcr.io/linonetwo/ollama:latest
+        docker run -d --name ollama -p 11434:11434 ollama/ollama
     """
     # Read the PDF file
     loader = PyPDFLoader(file_path)
@@ -33,7 +31,7 @@ Only include information that is part of the document.
 Start with the summary immediately, don't restate what you were asked to do in any way. Don't use weasel words like "appears to be".
 
 Document:
-"{{document}}"
+"{{context}}"
 Summary:"""
     prompt = PromptTemplate.from_template(prompt_template)
 
@@ -44,12 +42,8 @@ Summary:"""
         api_key="ollama",
         base_url="http://localhost:11434/v1",
     )
-    llm_chain = LLMChain(llm=llm, prompt=prompt)
-    stuff_chain = StuffDocumentsChain(
-        llm_chain=llm_chain, document_variable_name="document"
-    )
-
-    result = stuff_chain.invoke(docs)
+    chain = create_stuff_documents_chain(llm, prompt)
+    result = chain.invoke({"context": docs})
     return result
 
 def main():
