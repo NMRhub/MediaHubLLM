@@ -58,8 +58,8 @@ Start with the summary immediately, don't restate what you were asked to do in a
 def main():
     parser = argparse.ArgumentParser(description="Process a PDF using ollama.")
     parser.add_argument("file_path", help="The path to the PDF file.")
-    parser.add_argument("-l", "--length", type=int, default=150,
-                        help="The desired length of the summary in words. Default is 150.")
+    parser.add_argument("-l", "--length", type=int, default=300,
+                        help="The desired length of the summary in words. Default is 300.")
     parser.add_argument("-k", "--keywords", action="store_true", 
                         help="If provided, returns a list of keywords instead of a summary.")
     args = parser.parse_args()
