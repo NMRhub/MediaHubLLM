@@ -1,13 +1,16 @@
 import argparse
 import base64
 import io
-from typing import Generator, Tuple, List
+from typing import Generator, Any
 
 import fitz
 from PIL import Image
+from langchain_core.documents import Document
+from langchain_core.prompts import PromptTemplate
 from langchain_ollama import OllamaLLM
-
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from common import parse_thoughts_and_results
+
 
 
 def pdf_to_base64_pages(pdf_path: str) -> Generator[str, None, None]:
@@ -26,7 +29,7 @@ image_llm = OllamaLLM( model="llama3.2-vision:90b", base_url="http://localhost:1
 text_llm = OllamaLLM( model="deepseek-r1:70b", base_url="http://localhost:11434" )
 
 
-def process_pdf_summary(pdf_path: str, verbose: bool = False) -> Tuple[str, List[str]]:
+def process_pdf_summary(pdf_path: str, verbose: bool = False) -> tuple[Any, list[Document]]:
     """
     Process a PDF file and generate summaries for each page and an overall summary.
     
@@ -44,19 +47,18 @@ def process_pdf_summary(pdf_path: str, verbose: bool = False) -> Tuple[str, List
         llm_with_image_context = image_llm.bind(images=[image])
         response = llm_with_image_context.invoke("Summarize the contents of this image. This will be one of many images analyzed, and at the end "
                                       "the summaries will be summarized. Therefore be very concise and state the key contents of the slide without fluff.")
-        page_summaries.append(f"Page {i+1}: {response}")
+        page_summaries.append(Document(f"Page {i+1}: {response}"))
 
         if verbose:
             print(f"\nPage {i+1} Summary:")
             print(response)
 
     # Create final summary
-    all_summaries = "\n\n".join(page_summaries)
-    final_query = "Create a comprehensive summary of this entire document in no more than 500 words, based on these page summaries:\n\n" + all_summaries
+    prompt = PromptTemplate.from_template("Create a comprehensive summary of this entire document in roughly 500 words, based on these page summaries: {context}")
+    chain = create_stuff_documents_chain(text_llm, prompt)
+    result = chain.invoke({"context": page_summaries})
 
-    if verbose:
-        print(f"Input data length: {len(all_summaries)}")
-    final_response = parse_thoughts_and_results(text_llm.invoke(final_query))['result']
+    final_response = parse_thoughts_and_results(result)['result']
     
     if verbose:
         print("\nFinal Document Summary:")
