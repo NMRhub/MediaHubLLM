@@ -7,6 +7,8 @@ from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_core.prompts import PromptTemplate
 from langchain_ollama import OllamaLLM
 
+from common import parse_thoughts_and_results
+
 
 def process_pdf(file_path, summary_length=150, keywords=False):
     """
@@ -47,7 +49,9 @@ Start with the summary immediately, don't restate what you were asked to do in a
     prompt = PromptTemplate.from_template(prompt_template)
     chain = create_stuff_documents_chain(llm, prompt)
     result = chain.invoke({"context": docs})
-    return result
+
+    return parse_thoughts_and_results(result)['result']
+
 
 def main():
     parser = argparse.ArgumentParser(description="Process a PDF using ollama.")

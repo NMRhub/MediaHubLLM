@@ -1,11 +1,13 @@
+import argparse
 import base64
 import io
-import argparse
 from typing import Generator, Tuple, List
 
 import fitz
 from PIL import Image
 from langchain_ollama import OllamaLLM
+
+from common import parse_thoughts_and_results
 
 
 def pdf_to_base64_pages(pdf_path: str) -> Generator[str, None, None]:
@@ -54,7 +56,7 @@ def process_pdf_summary(pdf_path: str, verbose: bool = False) -> Tuple[str, List
 
     if verbose:
         print(f"Input data length: {len(all_summaries)}")
-    final_response = text_llm.invoke(final_query)
+    final_response = parse_thoughts_and_results(text_llm.invoke(final_query))['result']
     
     if verbose:
         print("\nFinal Document Summary:")
