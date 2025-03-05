@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.document_loaders.pdf import PyPDFLoader
@@ -24,6 +25,7 @@ def process_pdf(file_path, summary_length=150, keywords=False):
         str or list: The summary of the PDF as a string, or a list of keywords if keywords=True.
     """
     # Read the PDF file
+    logging.getLogger("pypdf").setLevel(logging.ERROR) # Ignore warnings about PDFs
     loader = PyPDFLoader(file_path)
     docs = loader.load()
 
