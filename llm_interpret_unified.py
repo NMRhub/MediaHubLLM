@@ -41,11 +41,12 @@ def pdf_to_base64_pages(pdf_path: str) -> Generator[str, None, None]:
         yield base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-def process_pdf_as_text(file_path: str, summary_length: int = 300, keywords: bool = False) -> Union[str, list]:
+def process_pdf_as_text(file_path: str, summary_length: int = 300, keywords: bool = False, text_model: str = 'deepseek-r1') -> Union[str, list]:
     """
     Reads a PDF file as text, processes it using LLM, and returns either a summary or keywords.
 
     Args:
+        text_model: The LLM model to use.
         file_path (str): The path to the PDF file.
         summary_length (int): The desired length of the summary in words.
         keywords (bool): If True, returns a list of keywords instead of a summary.
@@ -62,18 +63,19 @@ def process_pdf_as_text(file_path: str, summary_length: int = 300, keywords: boo
     else:
         prompt = summary_prompt
 
-    llm = OllamaLLM(model="deepseek-r1:70b", base_url="http://localhost:11434")
+    llm = OllamaLLM(model=text_model, base_url="http://localhost:11434")
     chain = create_stuff_documents_chain(llm, prompt)
     result = chain.invoke({"context": docs, 'summary_length': summary_length})
 
     return parse_thoughts_and_results(result)['result']
 
 
-def process_pdf_as_images(pdf_path: str, summary_length: int = 300, keywords: bool = False, verbose: bool = False) -> Union[str, list]:
+def process_pdf_as_images(pdf_path: str, summary_length: int = 300, keywords: bool = False, verbose: bool = False, text_model: str = 'deepseek-r1') -> Union[str, list]:
     """
     Process a PDF file as images and generate either a summary or keywords.
     
     Args:
+        text_model: The LLM model to use.
         pdf_path: Path to the PDF file
         summary_length: Desired length of the summary in words
         keywords: If True, returns keywords instead of summary
@@ -84,7 +86,7 @@ def process_pdf_as_images(pdf_path: str, summary_length: int = 300, keywords: bo
     """
     page_summaries = []
     image_llm = OllamaLLM(model="llama3.2-vision:90b", base_url="http://localhost:11434")
-    text_llm = OllamaLLM(model="deepseek-r1:70b", base_url="http://localhost:11434")
+    text_llm = OllamaLLM(model=text_model, base_url="http://localhost:11434")
 
     for i, image in enumerate(pdf_to_base64_pages(pdf_path)):
         llm_with_image_context = image_llm.bind(images=[image])
@@ -118,12 +120,15 @@ def main():
                       help="If provided, returns a list of keywords instead of a summary.")
     parser.add_argument("-v", "--verbose", action="store_true",
                       help="Print intermediate summaries when processing images.")
+    parser.add_argument("-t", "--text-model", choices=['deepseek-r1:70b', 'llama3.3'], default='deepseek-r1:70b',
+                      help="Choose the text model to use. Default is deepseek-r1:70b.")
     args = parser.parse_args()
 
     if args.mode == 'text':
-        result = process_pdf_as_text(args.file_path, args.length, args.keywords)
-    else:  # image mode
-        result = process_pdf_as_images(args.file_path, args.length, args.keywords, args.verbose)
+        result = process_pdf_as_text(args.file_path, args.length, args.keywords, args.text_model)
+    else:
+        # image mode
+        result = process_pdf_as_images(args.file_path, args.length, args.keywords, args.verbose, args.text_model)
 
     print(result)
 
