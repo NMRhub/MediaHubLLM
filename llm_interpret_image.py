@@ -54,16 +54,14 @@ def process_pdf_summary(pdf_path: str, verbose: bool = False) -> tuple[Any, list
             print(response)
 
     # Create final summary
-    prompt = PromptTemplate.from_template("Create a comprehensive summary of this entire document in roughly 500 words, based on these page summaries: {context}")
+    prompt = PromptTemplate.from_template("""
+Slides: {context}
+Prompt: Create a comprehensive summary of this entire document in roughly 500 words,
+based on these page summaries. Do not summarize each slide, instead just provide one summary for the entire presentation.""")
     chain = create_stuff_documents_chain(text_llm, prompt)
     result = chain.invoke({"context": page_summaries})
 
     final_response = parse_thoughts_and_results(result)['result']
-    
-    if verbose:
-        print("\nFinal Document Summary:")
-        print(final_response)
-    
     return final_response, page_summaries
 
 
@@ -75,11 +73,9 @@ def main():
     args = parser.parse_args()
     
     final_summary, page_summaries = process_pdf_summary(args.pdf_path, args.verbose)
-    
-    if not args.verbose:
-        # If not verbose, print the final summary at the end
-        print("\nFinal Document Summary:")
-        print(final_summary)
+
+    print("\nFinal Document Summary:")
+    print(final_summary)
 
 
 if __name__ == "__main__":
