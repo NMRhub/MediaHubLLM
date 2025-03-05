@@ -3,3 +3,8 @@ requests>=2.32.3,<3
 langchain>=0.3.19,<1
 langchain-openai>=0.3.7,<1
 langchain-community>=0.3.18,<1
+
+
+# For image-based parsing
+PyMuPDF>=1.25.3,<2
+pillow>=11.1.0,<12
