@@ -31,105 +31,98 @@ Prompt: Create a comprehensive summary of this entire document in roughly {summa
 based on these page summaries. Do not summarize each page, instead just provide one summary for the entire document.""")
 
 
-def pdf_to_base64_pages(pdf_path: str) -> Generator[str, None, None]:
-    pdf_document = fitz.open(pdf_path)
-    for page in list(pdf_document.pages())[0:3]:
-        pix = page.get_pixmap()
-        img = Image.frombytes("RGB", (pix.width, pix.height,), pix.samples)
-        buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
-        yield base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-def process_pdf_as_text(file_path: str, summary_length: int = 300, keywords: bool = False, text_model: str = 'deepseek-r1') -> Union[str, list]:
+def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False, verbose: bool = False, text_model: str = 'deepseek-r1') -> Union[str, list]:
     """
-    Reads a PDF file as text, processes it using LLM, and returns either a summary or keywords.
-
-    Args:
-        text_model: The LLM model to use.
-        file_path (str): The path to the PDF file.
-        summary_length (int): The desired length of the summary in words.
-        keywords (bool): If True, returns a list of keywords instead of a summary.
-
-    Returns:
-        Union[str, list]: The summary of the PDF as a string, or a list of keywords.
-    """
-    logging.getLogger("pypdf").setLevel(logging.ERROR)
-    loader = PyPDFLoader(file_path)
-    docs = loader.load()
-
-    if keywords:
-        prompt = keywords_prompt
-    else:
-        prompt = summary_prompt
-
-    llm = OllamaLLM(model=text_model, base_url="http://localhost:11434")
-    chain = create_stuff_documents_chain(llm, prompt)
-    result = chain.invoke({"context": docs, 'summary_length': summary_length})
-
-    return parse_thoughts_and_results(result)['result']
-
-
-def process_pdf_as_images(pdf_path: str, summary_length: int = 300, keywords: bool = False, verbose: bool = False, text_model: str = 'deepseek-r1') -> Union[str, list]:
-    """
-    Process a PDF file as images and generate either a summary or keywords.
+    Process a PDF file using both text extraction and image analysis to create a comprehensive summary.
     
     Args:
-        text_model: The LLM model to use.
         pdf_path: Path to the PDF file
         summary_length: Desired length of the summary in words
         keywords: If True, returns keywords instead of summary
-        verbose: If True, print summaries as they are generated
+        verbose: If True, print intermediate results
+        text_model: The text model to use for final summarization
         
     Returns:
         Union[str, list]: Either a summary string or list of keywords
     """
-    page_summaries = []
+    page_contents = []
     image_llm = OllamaLLM(model="llama3.2-vision:90b", base_url="http://localhost:11434")
     text_llm = OllamaLLM(model=text_model, base_url="http://localhost:11434")
+    
+    # Load PDF for text extraction
+    logging.getLogger("pypdf").setLevel(logging.ERROR)
+    loader = PyPDFLoader(pdf_path)
+    text_pages = loader.load()
+    
+    # Process each page with both text and image
+    pdf_document = fitz.open(pdf_path)
+    for i, page in enumerate(pdf_document.pages()):
+        # Get text content
+        text_content = text_pages[i].page_content if i < len(text_pages) else ""
+        
+        # Get image content
+        pix = page.get_pixmap()
+        img = Image.frombytes("RGB", (pix.width, pix.height,), pix.samples)
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        image_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        
+        # Process with vision model
+        llm_with_image_context = image_llm.bind(images=[image_b64])
+        prompt = f"""
+Extracted text: ```
+{text_content}
+```
 
-    for i, image in enumerate(pdf_to_base64_pages(pdf_path)):
-        llm_with_image_context = image_llm.bind(images=[image])
-        response = llm_with_image_context.invoke("Summarize the contents of this image. This will be one of many images analyzed, and at the end "
-                                      "the summaries will be summarized. Therefore be very concise and state the key contents of the slide without fluff.")
-        page_summaries.append(Document(f"Page {i+1}: {response}"))
+Look at the image and the extracted text from it provided here as a reference.
 
+Write out all text detected in the image. Do not include pure numbers
+like "5", but do include words with numbers or symbols like NaK∆18. Do not include the slide footer in the text 
+(the bottom of the image), but do include the header and key text from images and figures. Do not describe photos or graphics - only
+reproduce the text seen in the image.
+
+DO NOT PRODUCE ANY OUTPUT OTHER THAN TEXT FROM THE IMAGE. Do not write "The text visible in the image is"
+or "The following is a transcription of the text found in the provided image" or "The following is the extracted text".
+
+Then, write out a single sentence summary about the contents of the slide.
+"""
+
+        additional_content = llm_with_image_context.invoke(prompt)
+        
+        combined_content = f"Page {i+1} \n{additional_content}"
+        page_contents.append(Document(combined_content))
+        
         if verbose:
-            print(f"\nPage {i+1} Summary:")
-            print(response)
+            print(combined_content)
 
+    # Generate final summary or keywords
     if keywords:
         prompt = keywords_prompt
     else:
         prompt = summary_prompt
 
     chain = create_stuff_documents_chain(text_llm, prompt)
-    result = chain.invoke({"context": page_summaries, "summary_length": summary_length})
+    result = chain.invoke({"context": page_contents, "summary_length": summary_length})
 
     return parse_thoughts_and_results(result)['result']
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Process a PDF using ollama, either as text or images.")
+    parser = argparse.ArgumentParser(description="Process a PDF using ollama with combined text and image analysis.")
     parser.add_argument("file_path", help="The path to the PDF file.")
-    parser.add_argument("-m", "--mode", choices=['text', 'image'], default='text',
-                      help="Process PDF as text or as images. Default is text.")
     parser.add_argument("-l", "--length", type=int, default=300,
                       help="The desired length of the summary in words. Default is 300.")
     parser.add_argument("-k", "--keywords", action="store_true",
                       help="If provided, returns a list of keywords instead of a summary.")
     parser.add_argument("-v", "--verbose", action="store_true",
-                      help="Print intermediate summaries when processing images.")
+                      help="Print intermediate results during processing.")
     parser.add_argument("-t", "--text-model", choices=['deepseek-r1:70b', 'llama3.3'], default='deepseek-r1:70b',
-                      help="Choose the text model to use. Default is deepseek-r1:70b.")
+                      help="Choose the text model to use for final summarization. Default is deepseek-r1:70b.")
     args = parser.parse_args()
 
-    if args.mode == 'text':
-        result = process_pdf_as_text(args.file_path, args.length, args.keywords, args.text_model)
-    else:
-        # image mode
-        result = process_pdf_as_images(args.file_path, args.length, args.keywords, args.verbose, args.text_model)
-
+    result = process_pdf(args.file_path, args.length, args.keywords, args.verbose, args.text_model)
     print(result)
 
 
