@@ -4,7 +4,8 @@ import argparse
 import base64
 import io
 import logging
-from typing import Generator, Union
+from pathlib import Path
+from typing import Union
 
 import fitz
 from PIL import Image
@@ -31,8 +32,6 @@ Prompt: Create a comprehensive summary of this entire document in roughly {summa
 based on these page summaries. Do not summarize each page, instead just provide one summary for the entire document.""")
 
 
-
-
 def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False, verbose: bool = False) -> Union[str, list]:
     """
     Process a PDF file using both text extraction and image analysis to create a comprehensive summary.
@@ -56,6 +55,10 @@ def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False
     loader = PyPDFLoader(pdf_path)
     text_pages = loader.load()
     
+    # Create output directory for slides
+    output_dir = Path("/tmp/pdf_slides")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     # Process each page with both text and image
     pdf_document = fitz.open(pdf_path)
     for i, page in enumerate(pdf_document.pages()):
@@ -66,12 +69,17 @@ def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False
         pix = page.get_pixmap()
         img = Image.frombytes("RGB", (pix.width, pix.height,), pix.samples)
         buffer = io.BytesIO()
+        # Save slide image
+        slide_path = output_dir / f"slide_{i+1:03d}.png"
+        img.save(slide_path)
+        
+        # Save image for base64 encoding
         img.save(buffer, format="PNG")
         image_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
         
         # Process with vision model
         llm_with_image_context = image_llm.bind(images=[image_b64])
-        prompt = f"""
+        prompt = """
 Extracted text: ```
 {text_content}
 ```
@@ -89,9 +97,8 @@ or "The following is a transcription of the text found in the provided image" or
 Then, write out a single sentence summary about the contents of the slide.
 """
 
-        additional_content = llm_with_image_context.invoke(prompt)
-        
-        combined_content = f"Page {i+1} \n{additional_content}"
+        page_content = llm_with_image_context.invoke(prompt)
+        combined_content = f"Page {i+1} \n{page_content}"
         page_contents.append(Document(combined_content))
         
         if verbose:
