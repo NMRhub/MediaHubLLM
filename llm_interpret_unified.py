@@ -79,7 +79,7 @@ def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False
         
         # Process with vision model
         llm_with_image_context = image_llm.bind(images=[image_b64])
-        prompt = """
+        prompt = f"""
 Extracted text: ```
 {text_content}
 ```
@@ -102,6 +102,7 @@ Then, write out a single sentence summary about the contents of the slide.
         page_contents.append(Document(combined_content))
         
         if verbose:
+            print(f'Extracted text:\n{text_content}')
             print(combined_content)
 
     # Generate final summary or keywords
