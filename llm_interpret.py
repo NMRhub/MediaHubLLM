@@ -29,7 +29,8 @@ def process_pdf(file_path, summary_length=150, keywords=False):
         prompt_template = """Document:
 "{context}"
 
-Provide a list of keywords for the following document. Provide them as a python 
+Provide a list of keywords for the document. They keywords will be used to tag results in a search, so
+ they should be useful to someone searching for tag values. them as a python 
 array of strings, with each keyword either being one word or a hyphenated set of words. Do not provide anything other
 than the array:"""
     else:
