@@ -5,6 +5,7 @@ from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_core.prompts import PromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 
 def process_pdf(file_path, summary_length=150, keywords=False):
@@ -47,7 +48,7 @@ Start with the summary immediately, don't restate what you were asked to do in a
     llm = ChatOpenAI(
         temperature=0.1,
         model="llama3.3",
-        api_key="ollama",
+        api_key=SecretStr("ollama"),
         base_url="http://grace.nmrbox.org:11434/v1",
     )
     chain = create_stuff_documents_chain(llm, prompt)
