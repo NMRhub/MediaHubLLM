@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_core.prompts import PromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+from langchain_ollama import OllamaLLM
 
 
 def process_pdf(file_path, summary_length=150, keywords=False):
@@ -41,16 +41,10 @@ than the array:"""
 Please summarize the following text in about {summary_length} words.
 Only include information that is part of the document.
 Start with the summary immediately, don't restate what you were asked to do in any way. Don't use weasel words like "appears to be":"""
-    
-    prompt = PromptTemplate.from_template(prompt_template)
 
     # Send the text to the ollama instance for summarization
-    llm = ChatOpenAI(
-        temperature=0.1,
-        model="llama3.3",
-        api_key=SecretStr("ollama"),
-        base_url="http://grace.nmrbox.org:11434/v1",
-    )
+    llm = OllamaLLM(model="deepseek-r1:70b", base_url="http://localhost:11434")
+    prompt = PromptTemplate.from_template(prompt_template)
     chain = create_stuff_documents_chain(llm, prompt)
     result = chain.invoke({"context": docs})
     return result

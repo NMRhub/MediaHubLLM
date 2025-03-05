@@ -5,9 +5,7 @@ from typing import Generator, Tuple, List
 
 import fitz
 from PIL import Image
-from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+from langchain_ollama import OllamaLLM
 
 
 def pdf_to_base64_pages(pdf_path: str) -> Generator[str, None, None]:
@@ -22,17 +20,8 @@ def pdf_to_base64_pages(pdf_path: str) -> Generator[str, None, None]:
 
 
 # Initialize LLMs for image and text processing
-image_llm = ChatOpenAI(
-    model="llama3.2-vision:90b",
-    api_key=SecretStr("ollama"),
-    base_url="http://localhost:11434/v1",
-)
-
-text_llm = ChatOpenAI(
-    model="llama3.3",
-    api_key=SecretStr("ollama"),
-    base_url="http://localhost:11434/v1",
-)
+image_llm = OllamaLLM( model="llama3.2-vision:90b", base_url="http://localhost:11434" )
+text_llm = OllamaLLM( model="deepseek-r1:70b", base_url="http://localhost:11434" )
 
 
 def process_pdf_summary(pdf_path: str, verbose: bool = False) -> Tuple[str, List[str]]:
@@ -50,23 +39,14 @@ def process_pdf_summary(pdf_path: str, verbose: bool = False) -> Tuple[str, List
 
     # Get summary for each page
     for i, image in enumerate(pdf_to_base64_pages(pdf_path)):
-        query = ("Summarize the contents of this image. This will be one of many images analyzed, and at the end "
-                "the summaries will be summarized. Therefore be very concise and state the key contents of the slide without fluff.")
-        message = HumanMessage(
-            content=[
-                {"type": "text", "text": query},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{image}"},
-                },
-            ],
-        )
-        response = image_llm.invoke([message])
-        page_summaries.append(f"Page {i+1}: {response.content}")
-        
+        llm_with_image_context = image_llm.bind(images=[image])
+        response = llm_with_image_context.invoke("Summarize the contents of this image. This will be one of many images analyzed, and at the end "
+                                      "the summaries will be summarized. Therefore be very concise and state the key contents of the slide without fluff.")
+        page_summaries.append(f"Page {i+1}: {response}")
+
         if verbose:
             print(f"\nPage {i+1} Summary:")
-            print(response.content)
+            print(response)
 
     # Create final summary
     all_summaries = "\n\n".join(page_summaries)
@@ -74,14 +54,13 @@ def process_pdf_summary(pdf_path: str, verbose: bool = False) -> Tuple[str, List
 
     if verbose:
         print(f"Input data length: {len(all_summaries)}")
-    final_message = HumanMessage(content=final_query)
-    final_response = text_llm.invoke([final_message])
+    final_response = text_llm.invoke(final_query)
     
     if verbose:
         print("\nFinal Document Summary:")
-        print(final_response.content)
+        print(final_response)
     
-    return final_response.content, page_summaries
+    return final_response, page_summaries
 
 
 def main():
