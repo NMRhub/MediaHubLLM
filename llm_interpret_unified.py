@@ -33,7 +33,7 @@ based on these page summaries. Do not summarize each page, instead just provide 
 
 
 
-def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False, verbose: bool = False, text_model: str = 'deepseek-r1') -> Union[str, list]:
+def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False, verbose: bool = False) -> Union[str, list]:
     """
     Process a PDF file using both text extraction and image analysis to create a comprehensive summary.
     
@@ -49,7 +49,7 @@ def process_pdf(pdf_path: str, summary_length: int = 300, keywords: bool = False
     """
     page_contents = []
     image_llm = OllamaLLM(model="llama3.2-vision:90b", base_url="http://localhost:11434")
-    text_llm = OllamaLLM(model=text_model, base_url="http://localhost:11434")
+    text_llm = OllamaLLM(model="deepseek-r1:70b", base_url="http://localhost:11434")
     
     # Load PDF for text extraction
     logging.getLogger("pypdf").setLevel(logging.ERROR)
@@ -118,11 +118,9 @@ def main():
                       help="If provided, returns a list of keywords instead of a summary.")
     parser.add_argument("-v", "--verbose", action="store_true",
                       help="Print intermediate results during processing.")
-    parser.add_argument("-t", "--text-model", choices=['deepseek-r1:70b', 'llama3.3'], default='deepseek-r1:70b',
-                      help="Choose the text model to use for final summarization. Default is deepseek-r1:70b.")
     args = parser.parse_args()
 
-    result = process_pdf(args.file_path, args.length, args.keywords, args.verbose, args.text_model)
+    result = process_pdf(args.file_path, args.length, args.keywords, args.verbose)
     print(result)
 
 
